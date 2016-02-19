@@ -34,7 +34,7 @@ if(!file.exists("pml-training.csv")|!file.exists("pml-testing.csv")){
 }
 ```
 
-Now we remove the columns in the training and testing set which contain missing values and columns that are irrelvant to the analysis
+Now we remove the columns in the training and testing set which contain missing values, and columns that are irrelvant to the analysis
 
 ```{r echo=TRUE} 
 new_train<-train[,(colSums(is.na(train))==0)]
@@ -56,7 +56,7 @@ validset<-new_train[-inTrain, ]
 ```
 
 
-## Data analysis and Prediction
+## Data Analysis and Prediction
 
 Observe the correlation between variables in our dataset to determine if any further pre-processing is required. To this end we plot the correlations of each pair of variables below:
 
