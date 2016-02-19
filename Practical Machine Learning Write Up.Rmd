@@ -1,0 +1,120 @@
+####Practical Machine Learning: Assignment 1
+#Analysis of Weightlifting Exercise Dataset
+
+##Synopsis:
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website [here](http://groupware.les.inf.puc-rio.br/har)
+
+##Data Processing:
+
+The weighlifting data has been split into a training and testing set. These sets can be found below:
+
+* [Training Data Set](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv)
+
+* [Testing Data Set](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv)
+
+Initially we load the the required data sets into r, either by reading them from the working directory or downloading them as temporary files. We also assign missing values to entries that are currently 'NA' or blank:
+
+```{r echo=TRUE,message=FALSE}
+library(caret);library(corrplot);library(rattle)
+
+if(!file.exists("pml-training.csv")|!file.exists("pml-testing.csv")){
+        temp1<-tempfile()
+        temp2<-tempfile()
+        download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",temp1)
+        download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",temp2)
+        train<-read.csv(temp1,header = TRUE,na.strings = c("NA",""))
+        test<-read.csv(temp2,header = TRUE,na.strings = c("NA",""))
+        unlink(temp1)
+        unlink(temp2)
+        
+}else{
+        train<-read.csv("pml-training.csv",header=TRUE,na.strings=c("NA",""))
+        test<-read.csv("pml-testing.csv",header=TRUE,na.strings=c("NA",""))
+}
+```
+
+Now we remove the columns in the training and testing set which contain missing values and columns that are irrelvant to the analysis
+
+```{r echo=TRUE} 
+new_train<-train[,(colSums(is.na(train))==0)]
+new_test<-test[,(colSums(is.na(test))==0)]
+
+
+new_train<- new_train[, !(grepl("X|user_name|timestamp|new_window", colnames(new_train)))]
+new_test<- new_test[, !(grepl("X|user_name|timestamp|new_window", colnames(new_test)))]
+
+```
+
+split the training set further into 70% training and 30% validation to perform cross validation when developing our model.
+
+```{r echo=TRUE}
+inTrain = createDataPartition(y = new_train$classe, p = 0.7, list = FALSE)
+new_train<-new_train[inTrain, ]
+validset<-new_train[-inTrain, ]
+
+```
+
+
+## Data analysis and Prediction
+
+Observe the correlation between variables in our dataset to determine if any further pre-processing is required. To this end we plot the correlations of each pair of variables below:
+
+```{r}
+corMat <- cor(new_train[, -54])
+corrplot(corMat, order = "FPC", method = "color", type = "lower", tl.cex = 0.8, 
+         tl.col = rgb(0, 0, 0))
+```
+
+
+The degree of blueness and redness identify positive and negative correlations. It is evident from the diagram, that there exists significant correlations between some variables. Hence we conduct Principle Components Analysis to reduce the correlations between variables.
+
+```{r echo=TRUE}
+Proc <- preProcess(new_train[, -54], method = "pca", thresh = 0.99)
+new_train1 <- predict(Proc, new_train[, -54])
+validset1 <- predict(Proc,validset[, -54])
+
+```
+
+Next, we train a model using a random forest approach on the smaller training dataset
+
+```{r echo=TRUE,message=FALSE}
+library(randomForest)
+modelFit <- randomForest(new_train$classe~.,data=new_train1,ntree=100,importance=TRUE) 
+
+```
+We now review the relative importance of the resulting principal components of the trained model, 'modelFit'
+
+```{r echo=TRUE}
+varImpPlot(modelFit,main = "Importance of the Individual Principal Components",sort = TRUE)
+
+```
+
+As you look from the top to the bottom on the y-axis, this plot shows each of the principal components in order from most important to least important. The degree of importance is shown on the x-axis-increasing from left to right. Therefore, points high and to the right on this graph correspond to those principal components that are especially valuable in terms of being able to classify the observed training data. 
+
+We now apply our trained model to our cross validation set. We use the confusion matrix function output to assess how well the model predicted values in the cross validation response.
+
+```{r echo=TRUE}
+predvalid <- predict(modelFit, validset1)
+confus <- confusionMatrix(validset$classe, predvalid)
+confus$table
+confus$overall
+
+```
+
+The model has 100% accuracy in predicting the validation responses and an out of sample error of 0%.
+
+Finally, we use the model to predict the test set responses
+
+```{r echo=TRUE}
+testpred <- predict(Proc,new_test[, -54])
+pred_final <- predict(modelFit, testpred)
+pred_final
+
+```
+
+Thank you for reading my assignment.
+
+
+
+
